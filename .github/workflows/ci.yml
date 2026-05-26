@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - run: npm test
+
+      - name: Smoke test the CLI
+        shell: bash
+        run: |
+          node dist/cli.js _smoke -t typescript-stdio-tool -y --no-install --no-git
+          test -f _smoke/package.json
+          test -f _smoke/src/index.ts
+          test -f _smoke/.gitignore
+
+  sdk-version-check:
+    name: Check @modelcontextprotocol/sdk pin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify templates pin latest SDK
+        run: python src/utils/fetch_mcp_version.py --check
+        continue-on-error: true

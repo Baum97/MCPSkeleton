@@ -4,7 +4,24 @@ import kleur from 'kleur';
 import { TEMPLATES_ROOT } from './templates.js';
 import type { Answers } from './prompts.js';
 
-const PLACEHOLDER_FILES = new Set(['package.json', 'README.md', 'tsconfig.json']);
+// Extensions whose contents are scanned for {{token}} placeholders.
+const PLACEHOLDER_EXTENSIONS = new Set([
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.json',
+  '.md',
+  '.yml',
+  '.yaml',
+  '.toml',
+  '.py',
+]);
+
+// Specific filenames (no extension) that should also be scanned.
+const PLACEHOLDER_FILENAMES = new Set(['Dockerfile', '.gitignore']);
 
 export async function generate(answers: Answers): Promise<void> {
   const targetDir = path.resolve(process.cwd(), answers.directory);
@@ -28,7 +45,7 @@ export async function generate(answers: Answers): Promise<void> {
     filter: (src) => path.basename(src) !== 'template.json',
   });
 
-  // Rename _gitignore -> .gitignore (npm strips real .gitignore from packages)
+  // npm strips real .gitignore from packages — templates ship `_gitignore`
   const gitignoreSrc = path.join(targetDir, '_gitignore');
   if (await fs.pathExists(gitignoreSrc)) {
     await fs.move(gitignoreSrc, path.join(targetDir, '.gitignore'));
@@ -38,11 +55,17 @@ export async function generate(answers: Answers): Promise<void> {
   console.log(kleur.gray(`  Wrote to ${targetDir}`));
 }
 
+function shouldSubstitute(filename: string): boolean {
+  if (PLACEHOLDER_FILENAMES.has(filename)) return true;
+  return PLACEHOLDER_EXTENSIONS.has(path.extname(filename).toLowerCase());
+}
+
 async function applyPlaceholders(dir: string, answers: Answers): Promise<void> {
   const replacements: Record<string, string> = {
     '{{projectName}}': answers.projectName,
     '{{description}}': answers.description,
     '{{author}}': answers.author,
+    '{{year}}': String(new Date().getFullYear()),
   };
 
   const walk = async (current: string): Promise<void> => {
@@ -52,12 +75,16 @@ async function applyPlaceholders(dir: string, answers: Answers): Promise<void> {
       if (entry.isDirectory()) {
         if (entry.name === 'node_modules' || entry.name === '.git') continue;
         await walk(full);
-      } else if (PLACEHOLDER_FILES.has(entry.name)) {
+      } else if (shouldSubstitute(entry.name)) {
         let content = await fs.readFile(full, 'utf8');
+        let changed = false;
         for (const [token, value] of Object.entries(replacements)) {
-          content = content.split(token).join(value);
+          if (content.includes(token)) {
+            content = content.split(token).join(value);
+            changed = true;
+          }
         }
-        await fs.writeFile(full, content);
+        if (changed) await fs.writeFile(full, content);
       }
     }
   };

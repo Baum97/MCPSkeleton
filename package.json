@@ -19,7 +19,7 @@
     "test:watch": "vitest"
   },
   "keywords": ["mcp", "model-context-protocol", "scaffold", "generator", "cli"],
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
     "@inquirer/prompts": "^7.0.0",
     "commander": "^12.1.0",

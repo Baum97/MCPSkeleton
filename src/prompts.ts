@@ -1,6 +1,7 @@
-import { input, select } from '@inquirer/prompts';
+import { input, select, confirm } from '@inquirer/prompts';
 import path from 'node:path';
 import type { TemplateInfo } from './templates.js';
+import { validateProjectName } from './validate.js';
 
 export interface Answers {
   directory: string;
@@ -8,12 +9,16 @@ export interface Answers {
   description: string;
   author: string;
   template: string;
+  install: boolean;
+  git: boolean;
 }
 
 interface RunOpts {
   directory?: string;
   template?: string;
   skipPrompts: boolean;
+  install?: boolean;
+  git?: boolean;
   templates: TemplateInfo[];
 }
 
@@ -25,9 +30,17 @@ export async function runPrompts(opts: RunOpts): Promise<Answers> {
       : await input({
           message: 'Project directory:',
           default: 'my-mcp-server',
+          validate: (v) => {
+            const name = path.basename(path.resolve(v));
+            return validateProjectName(name);
+          },
         }));
 
   const projectName = path.basename(path.resolve(directory));
+  const nameCheck = validateProjectName(projectName);
+  if (nameCheck !== true) {
+    throw new Error(`Invalid project name "${projectName}": ${nameCheck}`);
+  }
 
   const template =
     opts.template ??
@@ -43,17 +56,23 @@ export async function runPrompts(opts: RunOpts): Promise<Answers> {
 
   const description = opts.skipPrompts
     ? 'An MCP server.'
-    : await input({
-        message: 'Description:',
-        default: 'An MCP server.',
-      });
+    : await input({ message: 'Description:', default: 'An MCP server.' });
 
   const author = opts.skipPrompts
     ? ''
-    : await input({
-        message: 'Author:',
-        default: '',
-      });
+    : await input({ message: 'Author:', default: '' });
 
-  return { directory, projectName, description, author, template };
+  const install =
+    opts.install ??
+    (opts.skipPrompts
+      ? false
+      : await confirm({ message: 'Install dependencies now?', default: true }));
+
+  const git =
+    opts.git ??
+    (opts.skipPrompts
+      ? false
+      : await confirm({ message: 'Initialize a git repository?', default: true }));
+
+  return { directory, projectName, description, author, template, install, git };
 }

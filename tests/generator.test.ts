@@ -26,6 +26,8 @@ const baseAnswers = (overrides: Partial<Answers>): Answers => ({
   description: 'A test MCP server.',
   author: 'Test Author',
   template: 'typescript-stdio-tool',
+  install: false,
+  git: false,
   ...overrides,
 });
 
@@ -69,13 +71,11 @@ describe('generate', () => {
     },
   );
 
-  it('substitutes placeholders inside src files when they exist', async () => {
-    // src/index.ts uses {{projectName}}; the generator only rewrites a fixed
-    // file list by default, so this test pins that current behaviour rather
-    // than asserting source-level substitution.
+  it('substitutes placeholders inside src/*.ts files', async () => {
     await generate(baseAnswers({ directory: 'srv-a', projectName: 'srv-a' }));
     const src = await fs.readFile(path.join(tmpRoot, 'srv-a/src/index.ts'), 'utf8');
-    expect(src).toContain('{{projectName}}');
+    expect(src).not.toContain('{{projectName}}');
+    expect(src).toContain("name: 'srv-a'");
   });
 
   it('leaves no placeholder tokens in package.json or README.md', async () => {
