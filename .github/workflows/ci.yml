@@ -32,10 +32,10 @@ jobs:
       - name: Smoke test the CLI
         shell: bash
         run: |
-          node dist/cli.js _smoke -t typescript-stdio-tool -y --no-install --no-git
-          test -f _smoke/package.json
-          test -f _smoke/src/index.ts
-          test -f _smoke/.gitignore
+          node dist/cli.js smoke-test -t typescript-stdio-tool -y --no-install --no-git
+          test -f smoke-test/package.json
+          test -f smoke-test/src/index.ts
+          test -f smoke-test/.gitignore
 
   sdk-version-check:
     name: Check @modelcontextprotocol/sdk pin
