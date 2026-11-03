@@ -22,8 +22,19 @@ const isWin = process.platform === 'win32';
 
 /** What each template must expose, and one tool call to prove it works. */
 const EXPECT = {
-  'typescript-stdio-tool': { tools: ['echo'], call: ['echo', { message: 'hi' }, 'You said: hi'] },
-  'typescript-stdio-resource': { resources: ['info://server'], read: 'greeting://world' },
+  'typescript-stdio-tool': {
+    add: [['tool', 'lookup']],
+    tools: ['echo', 'lookup'],
+    call: ['echo', { message: 'hi' }, 'You said: hi'],
+  },
+  'typescript-stdio-resource': {
+    // `add prompt` must also wire up zod, which this template does not ship.
+    add: [['prompt', 'summarize'], ['tool', 'lookup']],
+    tools: ['lookup'],
+    prompts: ['summarize'],
+    resources: ['info://server'],
+    read: 'greeting://world',
+  },
   'typescript-stdio-full': {
     tools: ['add', 'get_time'],
     prompts: ['review-code'],
@@ -31,12 +42,25 @@ const EXPECT = {
     call: ['add', { a: 2, b: 3 }, '{"sum":5}'],
     structured: { sum: 5 },
   },
-  'typescript-streamable-http': { http: true, tools: ['echo'], call: ['echo', { message: 'hi' }, 'You said: hi'] },
+  'typescript-streamable-http': {
+    http: true,
+    add: [['tool', 'lookup']],
+    tools: ['echo', 'lookup'],
+    call: ['echo', { message: 'hi' }, 'You said: hi'],
+  },
   'python-stdio-tool': {
     python: true,
-    tools: ['add', 'echo'],
+    add: [['tool', 'fetch-page'], ['resource', 'status']],
+    tools: ['add', 'echo', 'fetch-page'],
     prompts: ['review_code'],
-    resources: ['info://server'],
+    resources: ['info://server', 'data://status'],
+    call: ['echo', { message: 'hi' }, 'You said: hi'],
+  },
+  'python-streamable-http': {
+    python: true,
+    http: true,
+    add: [['tool', 'lookup']],
+    tools: ['echo', 'lookup'],
     call: ['echo', { message: 'hi' }, 'You said: hi'],
   },
 };
@@ -54,7 +78,7 @@ function assert(cond, msg) {
   if (!cond) throw new Error(msg);
 }
 
-async function waitForHttp(url, ms = 15_000) {
+async function waitForHttp(url, ms) {
   const until = Date.now() + ms;
   while (Date.now() < until) {
     try {
@@ -101,19 +125,40 @@ async function exercise(client, exp) {
   }
 }
 
+async function connectHttp(client, command, args, exp) {
+  const port = String(40000 + Math.floor(Math.random() * 10000));
+  const child = spawn(command, args, {
+    env: { ...process.env, PORT: port },
+    stdio: ['ignore', 'inherit', 'inherit'],
+    shell: isWin,
+  });
+  try {
+    await waitForHttp(`http://127.0.0.1:${port}/healthz`, 60_000);
+    await client.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`)));
+    await exercise(client, exp);
+    await client.close();
+  } finally {
+    child.kill();
+  }
+}
+
 async function runTemplate(template, workDir) {
   const exp = EXPECT[template];
   const dir = path.join(workDir, template);
   console.log(`\n=== ${template}`);
   sh(process.execPath, [CLI, dir, '-t', template, '-y', '--no-install', '--no-git'], workDir);
+  for (const [kind, name] of exp.add ?? []) {
+    sh(process.execPath, [CLI, 'add', kind, name, '--dir', dir], workDir);
+  }
 
   const client = new Client({ name: 'e2e', version: '0.0.0' });
 
   if (exp.python) {
     sh('uv', ['sync', '--quiet'], dir);
-    await client.connect(
-      new StdioClientTransport({ command: 'uv', args: ['--directory', dir, 'run', 'server.py'], stderr: 'inherit' }),
-    );
+    // The console script is named after the project directory.
+    const uvArgs = ['--directory', dir, 'run', template];
+    if (exp.http) return connectHttp(client, 'uv', uvArgs, exp);
+    await client.connect(new StdioClientTransport({ command: 'uv', args: uvArgs, stderr: 'inherit' }));
     await exercise(client, exp);
     await client.close();
     return;
@@ -121,29 +166,12 @@ async function runTemplate(template, workDir) {
 
   sh('npm', ['install', '--no-audit', '--no-fund', '--loglevel=error'], dir);
   sh('npm', ['run', 'build'], dir);
+  const entry = path.join(dir, 'dist/index.js');
 
-  if (!exp.http) {
-    await client.connect(
-      new StdioClientTransport({ command: process.execPath, args: [path.join(dir, 'dist/index.js')], stderr: 'inherit' }),
-    );
-    await exercise(client, exp);
-    await client.close();
-    return;
-  }
-
-  const port = String(40000 + Math.floor(Math.random() * 10000));
-  const child = spawn(process.execPath, [path.join(dir, 'dist/index.js')], {
-    env: { ...process.env, PORT: port },
-    stdio: ['ignore', 'inherit', 'inherit'],
-  });
-  try {
-    await waitForHttp(`http://127.0.0.1:${port}/healthz`);
-    await client.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`)));
-    await exercise(client, exp);
-    await client.close();
-  } finally {
-    child.kill();
-  }
+  if (exp.http) return connectHttp(client, process.execPath, [entry], exp);
+  await client.connect(new StdioClientTransport({ command: process.execPath, args: [entry], stderr: 'inherit' }));
+  await exercise(client, exp);
+  await client.close();
 }
 
 const requested = process.argv.slice(2);

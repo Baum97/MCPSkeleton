@@ -3,7 +3,7 @@ import fs from 'fs-extra';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { generate } from '../src/generator.js';
+import { generate, toPackageName } from '../src/generator.js';
 import { DEFAULT_TEMPLATE, listTemplates } from '../src/templates.js';
 import type { Answers } from '../src/prompts.js';
 
@@ -40,7 +40,18 @@ const TS_TEMPLATES = [
   'typescript-stdio-full',
   'typescript-streamable-http',
 ];
-const ALL_TEMPLATES = [...TS_TEMPLATES, 'python-stdio-tool'];
+const ALL_TEMPLATES = [...TS_TEMPLATES, 'python-stdio-tool', 'python-streamable-http'];
+
+describe('toPackageName', () => {
+  it.each([
+    ['my-server', 'my_server'],
+    ['mcp.server', 'mcp_server'],
+    ['@me/foo-bar', 'foo_bar'],
+    ['1st', '_1st'],
+  ])('%s → %s', (input, expected) => {
+    expect(toPackageName(input)).toBe(expected);
+  });
+});
 
 describe('listTemplates', () => {
   it('finds every shipped template, ordered, with metadata', async () => {
@@ -52,6 +63,7 @@ describe('listTemplates', () => {
     }
     const byName = Object.fromEntries(templates.map((t) => [t.name, t]));
     expect(byName['python-stdio-tool'].language).toBe('python');
+    expect(byName['python-streamable-http']).toMatchObject({ language: 'python', transport: 'http' });
     expect(byName['typescript-streamable-http'].transport).toBe('http');
     expect(byName['typescript-stdio-tool']).toMatchObject({ language: 'typescript', transport: 'stdio' });
   });
@@ -92,7 +104,10 @@ describe('generate', () => {
     const pyproject = await fs.readFile(path.join(outDir, 'pyproject.toml'), 'utf8');
     expect(pyproject).toContain('name = "py-srv"');
     expect(pyproject).toMatch(/"mcp>=2/);
-    const server = await fs.readFile(path.join(outDir, 'server.py'), 'utf8');
+    expect(pyproject).toContain('py-srv = "py_srv.server:main"');
+    expect(pyproject).toContain('packages = ["src/py_srv"]');
+    expect(await fs.pathExists(path.join(outDir, 'src/__packageName__'))).toBe(false);
+    const server = await fs.readFile(path.join(outDir, 'src/py_srv/server.py'), 'utf8');
     expect(server).toContain('MCPServer("py-srv")');
     expect(server).not.toContain('fastmcp');
     expect(await fs.pathExists(path.join(outDir, '.gitignore'))).toBe(true);

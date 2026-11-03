@@ -66,8 +66,19 @@ describe('detectServer', () => {
     expect((await detectServer('srv')).launch).toEqual({
       kind: 'stdio',
       command: 'uv',
-      args: ['--directory', path.join(tmp, 'srv'), 'run', 'server.py'],
+      args: ['--directory', path.join(tmp, 'srv'), 'run', 'srv'],
     });
+  });
+
+  it('detects a Python Streamable HTTP server', async () => {
+    await generate(answers('python-streamable-http'));
+    expect((await detectServer('srv')).launch).toEqual({ kind: 'http', url: DEFAULT_HTTP_URL });
+  });
+
+  it('falls back to a flat server.py without console scripts', async () => {
+    await fs.outputFile(path.join(tmp, 'flat/pyproject.toml'), '[project]\nname = "flat"\n');
+    await fs.outputFile(path.join(tmp, 'flat/server.py'), 'mcp.run(transport="stdio")\n');
+    expect((await detectServer('flat')).launch).toMatchObject({ args: ['--directory', path.join(tmp, 'flat'), 'run', 'server.py'] });
   });
 
   it('strips npm scopes from the server name and honours --url/--name', async () => {

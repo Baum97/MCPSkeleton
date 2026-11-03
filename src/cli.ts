@@ -2,7 +2,10 @@
 import path from 'node:path';
 import { Command } from 'commander';
 import kleur from 'kleur';
+import { NPX, PACKAGE_VERSION } from './meta.js';
 import { runPrompts } from './prompts.js';
+import { ADD_KINDS, addPrimitive, type AddKind } from './add.js';
+import { createServerJson } from './registry.js';
 import { generate } from './generator.js';
 import { listTemplates } from './templates.js';
 import { detectPackageManager, installDeps, installPythonDeps, initGit } from './postInstall.js';
@@ -20,7 +23,7 @@ const program = new Command();
 program
   .name('create-mcp-server')
   .description('Scaffold a Model Context Protocol server in seconds.')
-  .version('0.0.1')
+  .version(PACKAGE_VERSION)
   .argument('[directory]', 'directory to create the project in')
   .option('-t, --template <name>', 'template to use (skip the prompt)')
   .option('-y, --yes', 'accept all defaults, do not prompt')
@@ -87,14 +90,14 @@ program
         console.log(`    cd ${answers.directory}`);
         if (isPython) {
           if (!installed) console.log('    uv sync');
-          console.log('    uv run server.py');
+          console.log(`    uv run ${answers.projectName}${isHttp ? '      # http://127.0.0.1:3000/mcp' : ''}`);
         } else {
           if (!installed) console.log(`    ${pm} install`);
           console.log(`    ${pm} run build`);
           console.log(`    ${pm} start${isHttp ? '        # http://127.0.0.1:3000/mcp' : ''}`);
         }
         console.log(kleur.gray('\n  Connect it to a client (claude-desktop, claude-code, cursor, vscode):\n'));
-        console.log(`    create-mcp-server config ${answers.directory} --client claude-desktop\n`);
+        console.log(`    ${NPX} config ${answers.directory} --client claude-desktop\n`);
       } catch (err) {
         if (err instanceof Error && err.name === 'ExitPromptError') {
           console.log(kleur.gray('\n  Cancelled.\n'));
@@ -154,5 +157,52 @@ program
       }
     },
   );
+
+program
+  .command('add')
+  .description('add a tool, resource or prompt to an existing generated server')
+  .argument('<kind>', `what to add: ${ADD_KINDS.join(', ')}`)
+  .argument('<name>', 'name of the new tool/resource/prompt')
+  .option('-d, --dir <directory>', 'server project directory', '.')
+  .option('--description <text>', 'description shown to the model')
+  .option('--uri <uri>', 'resource URI (default: data://<name>)')
+  .action(
+    async (kind: string, name: string, opts: { dir: string; description?: string; uri?: string }) => {
+      try {
+        const result = await addPrimitive(opts.dir, kind as AddKind, name, {
+          description: opts.description,
+          uri: opts.uri,
+        });
+        console.log(kleur.green(`\n  Added ${kind} "${name}" to ${result.file}`));
+        for (const f of result.alsoUpdated) console.log(kleur.gray(`  Updated ${f}`));
+        for (const n of result.notes) console.log(kleur.gray(`  ${n}`));
+        console.log();
+      } catch (err) {
+        console.error(kleur.red('\n  Error:'), (err as Error).message, '\n');
+        process.exit(1);
+      }
+    },
+  );
+
+program
+  .command('registry')
+  .description('write server.json for the official MCP Registry (and the ownership proof it checks)')
+  .argument('[directory]', 'server project directory', '.')
+  .option('--namespace <ns>', 'reverse-DNS namespace, e.g. io.github.<user> (default: from GitHub remote)')
+  .option('--url <url>', 'public URL of a deployed Streamable HTTP server')
+  .option('-f, --force', 'overwrite an existing server.json')
+  .action(async (directory: string, opts: { namespace?: string; url?: string; force?: boolean }) => {
+    try {
+      const result = await createServerJson(directory, opts);
+      console.log(kleur.green(`\n  Wrote ${result.file} (${result.serverName})`));
+      for (const f of result.updated) console.log(kleur.gray(`  Updated ${f}`));
+      console.log();
+      for (const n of result.notes) console.log(`  • ${n}`);
+      console.log();
+    } catch (err) {
+      console.error(kleur.red('\n  Error:'), (err as Error).message, '\n');
+      process.exit(1);
+    }
+  });
 
 program.parseAsync();

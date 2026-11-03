@@ -1,5 +1,5 @@
 {
-  "name": "create-mcp-server",
+  "name": "@baum97/create-mcp-server",
   "version": "0.0.1",
   "description": "Scaffold a Model Context Protocol server in seconds.",
   "type": "module",
@@ -17,7 +17,8 @@
     "clean": "rimraf dist",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "node scripts/e2e.mjs"
+    "e2e": "node scripts/e2e.mjs",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "mcp",
@@ -37,6 +38,8 @@
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^22.0.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "rimraf": "^6.0.1",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
@@ -44,5 +47,16 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Baum97/MCPSkeleton.git"
+  },
+  "homepage": "https://github.com/Baum97/MCPSkeleton#readme",
+  "bugs": {
+    "url": "https://github.com/Baum97/MCPSkeleton/issues"
   }
 }

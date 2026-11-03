@@ -1,4 +1,4 @@
-"""{{projectName}} — {{description}}"""
+"""MCP server entry point."""
 
 from mcp.server.mcpserver import MCPServer
 
@@ -27,6 +27,9 @@ def server_info() -> str:
 def review_code(code: str) -> str:
     """Ask the model to review a code snippet."""
     return f"Please review this code:\n\n{code}"
+
+
+# create-mcp-server:add — `npx @baum97/create-mcp-server add` inserts new tools, resources and prompts above this line.
 
 
 def main() -> None:

@@ -31,6 +31,8 @@ function buildServer(): McpServer {
     }),
   );
 
+  // create-mcp-server:add — `npx @baum97/create-mcp-server add` inserts new tools, resources and prompts above this line.
+
   return server;
 }
 

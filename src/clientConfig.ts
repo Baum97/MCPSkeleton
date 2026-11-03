@@ -47,6 +47,38 @@ function serverNameFrom(raw: string): string {
   return raw.replace(/^@[^/]+\//, '');
 }
 
+/** Minimal pyproject.toml reader: project name and first console script. */
+export async function readPyproject(
+  dir: string,
+): Promise<{ name?: string; version?: string; description?: string; script?: string }> {
+  const text = await fs.readFile(path.join(dir, 'pyproject.toml'), 'utf8');
+  const section = (header: string) => {
+    const start = text.search(new RegExp(`^\\[${header.replace('.', '\\.')}\\]\\s*$`, 'm'));
+    if (start === -1) return '';
+    const rest = text.slice(start).split('\n').slice(1);
+    const end = rest.findIndex((l) => /^\[/.test(l));
+    return (end === -1 ? rest : rest.slice(0, end)).join('\n');
+  };
+  const project = section('project');
+  const field = (key: string) => new RegExp(`^${key}\\s*=\\s*"([^"]*)"`, 'm').exec(project)?.[1];
+  const script = /^"?([A-Za-z0-9._-]+)"?\s*=/m.exec(section('project.scripts'))?.[1];
+  return { name: field('name'), version: field('version'), description: field('description'), script };
+}
+
+/** Locate the Python server module: `server.py` or `src/<pkg>/server.py`. */
+export async function findPythonServer(dir: string): Promise<string | null> {
+  const flat = path.join(dir, 'server.py');
+  if (await fs.pathExists(flat)) return flat;
+  const src = path.join(dir, 'src');
+  if (await fs.pathExists(src)) {
+    for (const entry of await fs.readdir(src, { withFileTypes: true })) {
+      const candidate = path.join(src, entry.name, 'server.py');
+      if (entry.isDirectory() && (await fs.pathExists(candidate))) return candidate;
+    }
+  }
+  return null;
+}
+
 /**
  * Work out how to launch the MCP server living in `projectDir` by looking at
  * its project files. Pass `url` to describe a remote/HTTP server instead.
@@ -79,13 +111,18 @@ export async function detectServer(
       launch = { kind: 'stdio', command: 'node', args: [path.join(dir, entry)] };
     }
   } else if (await fs.pathExists(pyprojectPath)) {
-    if (!opts.name) {
-      const match = /^name\s*=\s*"([^"]+)"/m.exec(await fs.readFile(pyprojectPath, 'utf8'));
-      if (match) name = match[1];
+    const py = await readPyproject(dir);
+    if (!opts.name && py.name) name = py.name;
+    const serverFile = await findPythonServer(dir);
+    const isHttp =
+      serverFile !== null && /transport\s*=\s*["']streamable-http["']/.test(await fs.readFile(serverFile, 'utf8'));
+    if (opts.url || isHttp) {
+      launch = { kind: 'http', url: opts.url ?? DEFAULT_HTTP_URL };
+    } else {
+      // Prefer the console script (`uv run <name>`); fall back to a flat server.py.
+      const target = py.script ?? 'server.py';
+      launch = { kind: 'stdio', command: 'uv', args: ['--directory', dir, 'run', target] };
     }
-    launch = opts.url
-      ? { kind: 'http', url: opts.url }
-      : { kind: 'stdio', command: 'uv', args: ['--directory', dir, 'run', 'server.py'] };
   } else if (opts.url) {
     launch = { kind: 'http', url: opts.url };
   }

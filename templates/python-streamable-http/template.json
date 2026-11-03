@@ -1,0 +1,6 @@
+{
+  "description": "Python MCP server over Streamable HTTP (mcp 2.x MCPServer, stateless, uv) for remote deployment",
+  "order": 6,
+  "language": "python",
+  "transport": "http"
+}

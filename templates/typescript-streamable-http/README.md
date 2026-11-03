@@ -25,7 +25,7 @@ Debug with the [MCP Inspector](https://github.com/modelcontextprotocol/inspector
 ## Use with an MCP client
 
 ```bash
-npx create-mcp-server config . --client claude-code   # or vscode, cursor, claude-desktop
+npx @baum97/create-mcp-server config . --client claude-code   # or vscode, cursor, claude-desktop
 ```
 
 - **Claude Code:** `claude mcp add --transport http {{projectName}} http://127.0.0.1:3000/mcp`
@@ -39,8 +39,17 @@ docker build -t {{projectName}} .
 docker run -p 3000:3000 -e ALLOWED_HOSTS=your.domain {{projectName}}
 ```
 
-Before exposing it publicly, add authentication (the SDK ships OAuth helpers under `@modelcontextprotocol/sdk/server/auth`) and put it behind HTTPS.
+Before exposing it publicly, add authentication (the SDK ships OAuth helpers under `@modelcontextprotocol/sdk/server/auth`) and put it behind HTTPS. Then list it in the [MCP Registry](https://registry.modelcontextprotocol.io):
+
+```bash
+npx @baum97/create-mcp-server registry . --url https://your.domain/mcp
+mcp-publisher login github && mcp-publisher publish
+```
 
 ## Add more tools
 
-Register them inside `buildServer()` in `src/index.ts` with `server.registerTool(...)`.
+```bash
+npx @baum97/create-mcp-server add tool my-tool --description "What it does"
+```
+
+Or register them inside `buildServer()` in `src/index.ts` with `server.registerTool(...)`.

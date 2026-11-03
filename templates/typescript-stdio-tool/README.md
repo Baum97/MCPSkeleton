@@ -22,7 +22,7 @@ npm run build && npm run inspect
 Print a ready-to-paste config snippet (or merge it with `--write`):
 
 ```bash
-npx create-mcp-server config . --client claude-desktop   # or claude-code, cursor, vscode
+npx @baum97/create-mcp-server config . --client claude-desktop   # or claude-code, cursor, vscode
 ```
 
 Or add it to `claude_desktop_config.json` by hand:
@@ -61,8 +61,18 @@ Keep the `tools` list in `manifest.json` in sync with what the server registers.
 ## Publish
 
 1. `npm publish` — then anyone can run it with `npx {{projectName}}`.
-2. Optional: list it in the official [MCP Registry](https://registry.modelcontextprotocol.io) with [`mcp-publisher`](https://github.com/modelcontextprotocol/registry) (`mcp-publisher init` creates `server.json`; add a matching `"mcpName"` to `package.json`).
+2. Optional: list it in the official [MCP Registry](https://registry.modelcontextprotocol.io):
+
+   ```bash
+   npx @baum97/create-mcp-server registry .   # writes server.json + "mcpName" in package.json
+   npm publish                                # the registry verifies mcpName on npm
+   mcp-publisher login github && mcp-publisher publish
+   ```
 
 ## Add more tools
 
-Edit `src/index.ts` and call `server.registerTool(name, { title, description, inputSchema, outputSchema?, annotations? }, handler)`. Input schemas are [zod](https://zod.dev) shapes.
+```bash
+npx @baum97/create-mcp-server add tool my-tool --description "What it does"   # or: add resource / add prompt
+```
+
+Or by hand: edit `src/index.ts` and call `server.registerTool(name, { title, description, inputSchema, outputSchema?, annotations? }, handler)`. Input schemas are [zod](https://zod.dev) shapes.

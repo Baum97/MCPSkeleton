@@ -47,6 +47,8 @@ server.registerResource(
   }),
 );
 
+// create-mcp-server:add — `npx @baum97/create-mcp-server add` inserts new tools, resources and prompts above this line.
+
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
