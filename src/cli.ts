@@ -5,7 +5,15 @@ import kleur from 'kleur';
 import { runPrompts } from './prompts.js';
 import { generate } from './generator.js';
 import { listTemplates } from './templates.js';
-import { detectPackageManager, installDeps, initGit } from './postInstall.js';
+import { detectPackageManager, installDeps, installPythonDeps, initGit } from './postInstall.js';
+import {
+  CLIENTS,
+  buildClientConfig,
+  detectServer,
+  renderSnippet,
+  writeClientConfig,
+  type ClientId,
+} from './clientConfig.js';
 
 const program = new Command();
 
@@ -50,11 +58,20 @@ program
 
         await generate(answers);
 
+        const template = templates.find((t) => t.name === answers.template);
+        const isPython = template?.language === 'python';
+        const isHttp = template?.transport === 'http';
         const targetDir = path.resolve(process.cwd(), answers.directory);
         const pm = detectPackageManager();
 
+        let installed = false;
         if (answers.install) {
-          await installDeps(targetDir, pm);
+          if (isPython) {
+            installed = await installPythonDeps(targetDir);
+          } else {
+            await installDeps(targetDir, pm);
+            installed = true;
+          }
         }
         if (answers.git) {
           try {
@@ -68,15 +85,71 @@ program
 
         console.log(kleur.green('\n  Done! Next steps:\n'));
         console.log(`    cd ${answers.directory}`);
-        if (!answers.install) console.log(`    ${pm} install`);
-        console.log(`    ${pm} run build`);
-        console.log(`    ${pm} start\n`);
+        if (isPython) {
+          if (!installed) console.log('    uv sync');
+          console.log('    uv run server.py');
+        } else {
+          if (!installed) console.log(`    ${pm} install`);
+          console.log(`    ${pm} run build`);
+          console.log(`    ${pm} start${isHttp ? '        # http://127.0.0.1:3000/mcp' : ''}`);
+        }
+        console.log(kleur.gray('\n  Connect it to a client (claude-desktop, claude-code, cursor, vscode):\n'));
+        console.log(`    create-mcp-server config ${answers.directory} --client claude-desktop\n`);
       } catch (err) {
         if (err instanceof Error && err.name === 'ExitPromptError') {
           console.log(kleur.gray('\n  Cancelled.\n'));
           process.exit(0);
         }
         console.error(kleur.red('\n  Error:'), err);
+        process.exit(1);
+      }
+    },
+  );
+
+program
+  .command('config')
+  .description('print (or write) the MCP client config entry for a generated server')
+  .argument('[directory]', 'server project directory', '.')
+  .option(
+    '-c, --client <client>',
+    `client to configure: ${CLIENTS.join(', ')}`,
+    'claude-desktop',
+  )
+  .option('--url <url>', 'configure a remote (Streamable HTTP) server at this URL')
+  .option('--name <name>', 'server name used as the config key')
+  .option('-w, --write', 'merge the entry into the client config file')
+  .option('-f, --force', 'with --write, replace an existing entry of the same name')
+  .action(
+    async (
+      directory: string,
+      opts: { client: string; url?: string; name?: string; write?: boolean; force?: boolean },
+    ) => {
+      try {
+        if (!(CLIENTS as readonly string[]).includes(opts.client)) {
+          throw new Error(`Unknown client "${opts.client}". Choose one of: ${CLIENTS.join(', ')}.`);
+        }
+        const server = await detectServer(directory, { url: opts.url, name: opts.name });
+        const config = buildClientConfig(opts.client as ClientId, server);
+
+        if (opts.write) {
+          const result = await writeClientConfig(config, server.name, { force: opts.force });
+          console.log(kleur.green(`  ${result === 'created' ? 'Created' : 'Updated'} ${config.file}`));
+          if (opts.client === 'claude-desktop') {
+            console.log(kleur.gray('  Restart Claude Desktop to load the server.'));
+          }
+        } else {
+          console.log(kleur.gray(`\n  Add to ${config.file}:\n`));
+          console.log(renderSnippet(config, server.name));
+          if (config.command) {
+            console.log(kleur.gray('\n  …or run:\n'));
+            console.log(`  ${config.command}`);
+          }
+          console.log(kleur.gray('\n  Tip: pass --write to merge it automatically.'));
+        }
+        if (config.note) console.log(kleur.gray(`  ${config.note}`));
+        console.log();
+      } catch (err) {
+        console.error(kleur.red('\n  Error:'), (err as Error).message, '\n');
         process.exit(1);
       }
     },

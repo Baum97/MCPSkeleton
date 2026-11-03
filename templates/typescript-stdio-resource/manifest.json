@@ -1,0 +1,29 @@
+{
+  "manifest_version": "0.3",
+  "name": "{{projectName}}",
+  "version": "0.1.0",
+  "description": "{{description}}",
+  "author": {
+    "name": "{{author}}"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/index.js"
+      ]
+    }
+  },
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}

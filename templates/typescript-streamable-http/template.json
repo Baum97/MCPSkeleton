@@ -1,0 +1,6 @@
+{
+  "description": "TypeScript MCP server over Streamable HTTP (Express, stateless) for remote deployment",
+  "order": 4,
+  "language": "typescript",
+  "transport": "http"
+}

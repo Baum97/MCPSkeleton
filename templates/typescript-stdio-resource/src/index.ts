@@ -8,10 +8,14 @@ const server = new McpServer({
 });
 
 // Static resource — a single fixed URI.
-server.resource(
+server.registerResource(
   'server-info',
   'info://server',
-  { description: 'Basic information about this MCP server.', mimeType: 'application/json' },
+  {
+    title: 'Server info',
+    description: 'Basic information about this MCP server.',
+    mimeType: 'application/json',
+  },
   async (uri) => ({
     contents: [
       {
@@ -24,10 +28,14 @@ server.resource(
 );
 
 // Templated resource — URI pattern with a variable.
-server.resource(
+server.registerResource(
   'greeting',
   new ResourceTemplate('greeting://{name}', { list: undefined }),
-  { description: 'A friendly greeting addressed to {name}.', mimeType: 'text/plain' },
+  {
+    title: 'Greeting',
+    description: 'A friendly greeting addressed to {name}.',
+    mimeType: 'text/plain',
+  },
   async (uri, { name }) => ({
     contents: [
       {
@@ -42,6 +50,7 @@ server.resource(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  // stdout is reserved for JSON-RPC messages — log to stderr only.
   console.error('{{projectName}} MCP server running on stdio');
 }
 

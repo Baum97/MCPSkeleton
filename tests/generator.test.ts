@@ -2,9 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs-extra';
 import path from 'node:path';
 import os from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { generate } from '../src/generator.js';
-import { listTemplates } from '../src/templates.js';
+import { DEFAULT_TEMPLATE, listTemplates } from '../src/templates.js';
 import type { Answers } from '../src/prompts.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let tmpRoot: string;
 let prevCwd: string;
@@ -31,19 +34,31 @@ const baseAnswers = (overrides: Partial<Answers>): Answers => ({
   ...overrides,
 });
 
+const TS_TEMPLATES = [
+  'typescript-stdio-tool',
+  'typescript-stdio-resource',
+  'typescript-stdio-full',
+  'typescript-streamable-http',
+];
+const ALL_TEMPLATES = [...TS_TEMPLATES, 'python-stdio-tool'];
+
 describe('listTemplates', () => {
-  it('finds both shipped templates with descriptions', async () => {
+  it('finds every shipped template, ordered, with metadata', async () => {
     const templates = await listTemplates();
-    const names = templates.map((t) => t.name).sort();
-    expect(names).toEqual(['typescript-stdio-resource', 'typescript-stdio-tool']);
+    expect(templates.map((t) => t.name)).toEqual(ALL_TEMPLATES);
+    expect(templates[0].name).toBe(DEFAULT_TEMPLATE);
     for (const t of templates) {
       expect(t.description.length).toBeGreaterThan(0);
     }
+    const byName = Object.fromEntries(templates.map((t) => [t.name, t]));
+    expect(byName['python-stdio-tool'].language).toBe('python');
+    expect(byName['typescript-streamable-http'].transport).toBe('http');
+    expect(byName['typescript-stdio-tool']).toMatchObject({ language: 'typescript', transport: 'stdio' });
   });
 });
 
 describe('generate', () => {
-  it.each(['typescript-stdio-tool', 'typescript-stdio-resource'])(
+  it.each(TS_TEMPLATES)(
     'scaffolds %s with placeholders replaced',
     async (template) => {
       const answers = baseAnswers({
@@ -70,6 +85,58 @@ describe('generate', () => {
       expect(pkg.dependencies['@modelcontextprotocol/sdk']).toMatch(/^\^/);
     },
   );
+
+  it('scaffolds python-stdio-tool with placeholders replaced', async () => {
+    await generate(baseAnswers({ directory: 'py-srv', projectName: 'py-srv', template: 'python-stdio-tool' }));
+    const outDir = path.join(tmpRoot, 'py-srv');
+    const pyproject = await fs.readFile(path.join(outDir, 'pyproject.toml'), 'utf8');
+    expect(pyproject).toContain('name = "py-srv"');
+    expect(pyproject).toMatch(/"mcp>=2/);
+    const server = await fs.readFile(path.join(outDir, 'server.py'), 'utf8');
+    expect(server).toContain('MCPServer("py-srv")');
+    expect(server).not.toContain('fastmcp');
+    expect(await fs.pathExists(path.join(outDir, '.gitignore'))).toBe(true);
+  });
+
+  it.each(ALL_TEMPLATES)('leaves no placeholder tokens anywhere in %s', async (template) => {
+    await generate(baseAnswers({ directory: 'clean', projectName: 'clean', template }));
+    const walk = async (dir: string): Promise<string[]> => {
+      const out: string[] = [];
+      for (const e of await fs.readdir(dir, { withFileTypes: true })) {
+        const full = path.join(dir, e.name);
+        out.push(...(e.isDirectory() ? await walk(full) : [full]));
+      }
+      return out;
+    };
+    for (const file of await walk(path.join(tmpRoot, 'clean'))) {
+      expect(await fs.readFile(file, 'utf8'), file).not.toMatch(/\{\{[a-zA-Z]+\}\}/);
+    }
+  });
+
+  it.each(['typescript-stdio-tool', 'typescript-stdio-resource', 'typescript-stdio-full'])(
+    'ships a valid-looking MCPB manifest in %s',
+    async (template) => {
+      await generate(baseAnswers({ directory: 'bundle', projectName: 'bundle', template }));
+      const manifest = await fs.readJson(path.join(tmpRoot, 'bundle/manifest.json'));
+      expect(manifest).toMatchObject({
+        manifest_version: '0.3',
+        name: 'bundle',
+        author: { name: 'Test Author' },
+        server: { type: 'node', entry_point: 'dist/index.js' },
+      });
+      expect(manifest.server.mcp_config.args).toEqual(['${__dirname}/dist/index.js']);
+    },
+  );
+
+  it('does not use deprecated McpServer.tool()/.resource() helpers', async () => {
+    for (const template of TS_TEMPLATES) {
+      const src = await fs.readFile(
+        path.join(__dirname, '../templates', template, 'src/index.ts'),
+        'utf8',
+      );
+      expect(src, template).not.toMatch(/server\.(tool|resource|prompt)\(/);
+    }
+  });
 
   it('substitutes placeholders inside src/*.ts files', async () => {
     await generate(baseAnswers({ directory: 'srv-a', projectName: 'srv-a' }));

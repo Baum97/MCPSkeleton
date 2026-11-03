@@ -1,3 +1,6 @@
 {
-  "description": "TypeScript MCP server over stdio exposing a static and a templated resource"
+  "description": "TypeScript MCP server over stdio exposing a static and a templated resource",
+  "order": 2,
+  "language": "typescript",
+  "transport": "stdio"
 }

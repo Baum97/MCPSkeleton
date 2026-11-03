@@ -1,0 +1,14 @@
+[project]
+name = "{{projectName}}"
+version = "0.1.0"
+description = "{{description}}"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=2.3.0,<3",
+]
+
+[dependency-groups]
+dev = [
+    "mcp[cli]>=2.3.0,<3",
+]

@@ -1,6 +1,6 @@
 import { input, select, confirm } from '@inquirer/prompts';
 import path from 'node:path';
-import type { TemplateInfo } from './templates.js';
+import { DEFAULT_TEMPLATE, type TemplateInfo } from './templates.js';
 import { validateProjectName } from './validate.js';
 
 export interface Answers {
@@ -45,7 +45,7 @@ export async function runPrompts(opts: RunOpts): Promise<Answers> {
   const template =
     opts.template ??
     (opts.skipPrompts
-      ? opts.templates[0].name
+      ? (opts.templates.find((t) => t.name === DEFAULT_TEMPLATE) ?? opts.templates[0]).name
       : await select({
           message: 'Choose a template:',
           choices: opts.templates.map((t) => ({

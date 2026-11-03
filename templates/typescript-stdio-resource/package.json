@@ -7,13 +7,17 @@
   "bin": {
     "{{projectName}}": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "inspect": "npx @modelcontextprotocol/inspector node dist/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0"
+    "@modelcontextprotocol/sdk": "^1.32.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
