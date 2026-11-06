@@ -21,6 +21,8 @@ beforeEach(async () => {
   prevCwd = process.cwd();
   tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-skel-cfg-'));
   process.chdir(tmp);
+  // Resolve symlinks (macOS: /var → /private/var) so paths compare equal.
+  tmp = process.cwd();
 });
 
 afterEach(async () => {
@@ -104,8 +106,8 @@ describe('buildClientConfig', () => {
       '/home/u/.config/Claude/claude_desktop_config.json',
     );
     expect(
-      claudeDesktopConfigPath({ homedir: 'C:/u', platform: 'win32', env: { APPDATA: 'C:/AppData' } }),
-    ).toBe(path.join('C:/AppData', 'Claude', 'claude_desktop_config.json'));
+      claudeDesktopConfigPath({ homedir: 'C:\\u', platform: 'win32', env: { APPDATA: 'C:\\AppData' } }),
+    ).toBe('C:\\AppData\\Claude\\claude_desktop_config.json');
   });
 
   it('claude-desktop: stdio entry, or mcp-remote bridge for HTTP', () => {

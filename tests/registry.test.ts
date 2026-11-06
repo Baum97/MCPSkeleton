@@ -23,6 +23,8 @@ beforeEach(async () => {
   prevCwd = process.cwd();
   tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-skel-reg-'));
   process.chdir(tmp);
+  // Resolve symlinks (macOS: /var → /private/var) so paths compare equal.
+  tmp = process.cwd();
 });
 
 afterEach(async () => {

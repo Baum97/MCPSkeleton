@@ -139,14 +139,15 @@ export function claudeDesktopConfigPath(env: EnvOptions = {}): string {
   const home = env.homedir ?? os.homedir();
   const platform = env.platform ?? process.platform;
   const vars = env.env ?? process.env;
-  if (platform === 'darwin') {
-    return path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
-  }
+  // Use the target OS's path rules, not the host's, so results are stable everywhere.
   if (platform === 'win32') {
-    const appData = vars.APPDATA ?? path.join(home, 'AppData', 'Roaming');
-    return path.join(appData, 'Claude', 'claude_desktop_config.json');
+    const appData = vars.APPDATA ?? path.win32.join(home, 'AppData', 'Roaming');
+    return path.win32.join(appData, 'Claude', 'claude_desktop_config.json');
   }
-  return path.join(home, '.config', 'Claude', 'claude_desktop_config.json');
+  if (platform === 'darwin') {
+    return path.posix.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+  }
+  return path.posix.join(home, '.config', 'Claude', 'claude_desktop_config.json');
 }
 
 function shellQuote(arg: string): string {
