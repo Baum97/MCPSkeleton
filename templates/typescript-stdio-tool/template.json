@@ -1,3 +1,6 @@
 {
-  "description": "TypeScript MCP server over stdio with one example tool"
+  "description": "TypeScript MCP server over stdio with one example tool",
+  "order": 1,
+  "language": "typescript",
+  "transport": "stdio"
 }

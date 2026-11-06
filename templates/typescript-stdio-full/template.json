@@ -1,0 +1,6 @@
+{
+  "description": "TypeScript MCP server over stdio with tools (incl. structured output), resources and prompts",
+  "order": 3,
+  "language": "typescript",
+  "transport": "stdio"
+}

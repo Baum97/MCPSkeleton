@@ -50,3 +50,25 @@ jobs:
       - name: Verify templates pin latest SDK
         run: python src/utils/fetch_mcp_version.py --check
         continue-on-error: true
+
+  e2e:
+    name: End-to-end (every template)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: astral-sh/setup-uv@v6
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Generate, install, build and exercise each template over MCP
+        run: npm run e2e
+        env:
+          E2E_REQUIRE_UV: '1'

@@ -1,0 +1,6 @@
+{
+  "description": "Python MCP server over stdio (mcp 2.x MCPServer, managed with uv)",
+  "order": 5,
+  "language": "python",
+  "transport": "stdio"
+}

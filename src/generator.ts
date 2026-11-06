@@ -51,8 +51,35 @@ export async function generate(answers: Answers): Promise<void> {
     await fs.move(gitignoreSrc, path.join(targetDir, '.gitignore'));
   }
 
+  await renamePlaceholderPaths(targetDir, answers);
   await applyPlaceholders(targetDir, answers);
   console.log(kleur.gray(`  Wrote to ${targetDir}`));
+}
+
+/**
+ * Python-importable form of the project name: `my-server` → `my_server`.
+ * Used for package directories (`__packageName__`) and `{{packageName}}`.
+ */
+export function toPackageName(projectName: string): string {
+  const base = projectName.replace(/^@[^/]+\//, '').toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  return /^[0-9]/.test(base) ? `_${base}` : base;
+}
+
+/** Rename files/directories whose name contains `__packageName__`. */
+async function renamePlaceholderPaths(dir: string, answers: Answers): Promise<void> {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    let full = path.join(dir, entry.name);
+    if (entry.name.includes('__packageName__')) {
+      const renamed = path.join(
+        dir,
+        entry.name.split('__packageName__').join(toPackageName(answers.projectName)),
+      );
+      await fs.move(full, renamed);
+      full = renamed;
+    }
+    if (entry.isDirectory()) await renamePlaceholderPaths(full, answers);
+  }
 }
 
 function shouldSubstitute(filename: string): boolean {
@@ -63,6 +90,7 @@ function shouldSubstitute(filename: string): boolean {
 async function applyPlaceholders(dir: string, answers: Answers): Promise<void> {
   const replacements: Record<string, string> = {
     '{{projectName}}': answers.projectName,
+    '{{packageName}}': toPackageName(answers.projectName),
     '{{description}}': answers.description,
     '{{author}}': answers.author,
     '{{year}}': String(new Date().getFullYear()),

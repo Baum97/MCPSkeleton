@@ -1,10 +1,10 @@
 {
-  "name": "create-mcp-server",
+  "name": "@baum97/create-mcp-server",
   "version": "0.0.1",
   "description": "Scaffold a Model Context Protocol server in seconds.",
   "type": "module",
   "bin": {
-    "create-mcp-server": "./dist/cli.js"
+    "create-mcp-server": "dist/cli.js"
   },
   "files": [
     "dist",
@@ -16,19 +16,30 @@
     "start": "node dist/cli.js",
     "clean": "rimraf dist",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "e2e": "node scripts/e2e.mjs",
+    "prepublishOnly": "npm run build"
   },
-  "keywords": ["mcp", "model-context-protocol", "scaffold", "generator", "cli"],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "scaffold",
+    "generator",
+    "cli"
+  ],
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
     "@inquirer/prompts": "^7.0.0",
     "commander": "^12.1.0",
-    "kleur": "^4.1.5",
-    "fs-extra": "^11.2.0"
+    "fs-extra": "^11.2.0",
+    "kleur": "^4.1.5"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^22.0.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "rimraf": "^6.0.1",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
@@ -36,5 +47,16 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Baum97/MCPSkeleton.git"
+  },
+  "homepage": "https://github.com/Baum97/MCPSkeleton#readme",
+  "bugs": {
+    "url": "https://github.com/Baum97/MCPSkeleton/issues"
   }
 }

@@ -33,6 +33,33 @@ export async function installDeps(targetDir: string, pm: PackageManager): Promis
   await run(pm, ['install'], targetDir);
 }
 
+/** True if `cmd --version` runs successfully. */
+export async function hasCommand(cmd: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const child = spawn(cmd, ['--version'], {
+      stdio: 'ignore',
+      shell: process.platform === 'win32',
+    });
+    child.on('error', () => resolve(false));
+    child.on('exit', (code) => resolve(code === 0));
+  });
+}
+
+/** Install a Python template's dependencies with uv. Returns false if uv is missing. */
+export async function installPythonDeps(targetDir: string): Promise<boolean> {
+  if (!(await hasCommand('uv'))) {
+    console.warn(
+      kleur.yellow(
+        '  uv not found — skipping install. Get it from https://docs.astral.sh/uv/ and run `uv sync`.',
+      ),
+    );
+    return false;
+  }
+  console.log(kleur.gray('  Installing dependencies with uv...'));
+  await run('uv', ['sync'], targetDir);
+  return true;
+}
+
 export async function initGit(targetDir: string): Promise<void> {
   if (await fs.pathExists(path.join(targetDir, '.git'))) return;
   console.log(kleur.gray('  Initializing git repository...'));

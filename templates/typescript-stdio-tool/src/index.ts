@@ -8,18 +8,25 @@ const server = new McpServer({
   version: '0.1.0',
 });
 
-server.tool(
+server.registerTool(
   'echo',
-  'Echo a message back to the caller.',
-  { message: z.string().describe('The message to echo back') },
+  {
+    title: 'Echo',
+    description: 'Echo a message back to the caller.',
+    inputSchema: { message: z.string().describe('The message to echo back') },
+    annotations: { readOnlyHint: true, openWorldHint: false },
+  },
   async ({ message }) => ({
     content: [{ type: 'text', text: `You said: ${message}` }],
   }),
 );
 
+// create-mcp-server:add — `npx @baum97/create-mcp-server add` inserts new tools, resources and prompts above this line.
+
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  // stdout is reserved for JSON-RPC messages — log to stderr only.
   console.error('{{projectName}} MCP server running on stdio');
 }
 
