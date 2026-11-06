@@ -4,7 +4,7 @@
   "description": "Scaffold a Model Context Protocol server in seconds.",
   "type": "module",
   "bin": {
-    "create-mcp-server": "./dist/cli.js"
+    "create-mcp-server": "dist/cli.js"
   },
   "files": [
     "dist",
