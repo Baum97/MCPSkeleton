@@ -130,8 +130,17 @@ templates/
 GitHub Actions workflows live at [.github/workflows/](.github/workflows/) — that's the only path GitHub recognizes; placing them anywhere else makes them inert.
 
 - **[ci.yml](.github/workflows/ci.yml)** — runs `npm ci`, `npm run build`, `npm test`, and a CLI smoke test on Node 20/22 across Linux/Windows/macOS for every push and PR to `main`. An `e2e` job runs `npm run e2e`: every template is generated, installed, built, started and exercised over MCP (stdio and Streamable HTTP, Python via uv). Also runs the SDK pin check (non-blocking).
-- **[release.yml](.github/workflows/release.yml)** — on a `v*` tag: build, unit + e2e tests, then `npm publish --provenance` and a GitHub release. Needs the `NPM_TOKEN` secret. Release with `npm version patch && git push --follow-tags`.
+- **[release.yml](.github/workflows/release.yml)** — on a `v*` tag: build, unit + e2e tests, then `npm publish` via [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC, no token; provenance is automatic) and a GitHub release. Release with `npm version patch && git push --follow-tags`. See [Releasing](#releasing) for the one-time setup.
 - **[sdk-bump.yml](.github/workflows/sdk-bump.yml)** — weekly cron + manual trigger that runs the Python sync script and opens a PR when `@modelcontextprotocol/sdk` has a new release.
+
+## Releasing
+
+No npm token is needed — releases use npm trusted publishing (OIDC). Trusted publishing is configured per package, so the very first version is published by hand:
+
+1. **First publish (once, locally):** `npm login` (2FA on your npm account), then `npm publish --access public`. The `@baum97` scope requires the npm user or org `baum97`.
+2. **Connect GitHub Actions:** npmjs.com → *Packages* → `@baum97/create-mcp-server` → *Settings* → *Trusted publishing* → *GitHub Actions*: user `Baum97`, repository `MCPSkeleton`, workflow `release.yml`, environment empty, allowed actions: tick **npm publish**. The configuration expires if it isn't used for a successful publish within 2 days, so release right after.
+3. **Lock it down:** *Settings* → *Publishing access* → **Require two-factor authentication and disallow tokens**.
+4. **Every later release:** `npm version patch` (or `minor`) and `git push --follow-tags`.
 
 ## License
 
@@ -153,7 +162,7 @@ GitHub Actions workflows live at [.github/workflows/](.github/workflows/) — th
 - [x] `registry` subcommand: `server.json` + ownership proof for the MCP Registry
 - [x] Python Streamable HTTP template; Python templates packaged for `uvx`
 - [x] Release workflow → npm as `@baum97/create-mcp-server` (`npm create @baum97/mcp-server`)
-- [ ] First npm release (needs the `NPM_TOKEN` secret)
+- [ ] First npm release (manual, then trusted publishing — see [Releasing](#releasing))
 - [ ] Auth example (OAuth) for the HTTP templates
 - [ ] Interactive `add` (prompt for argument names/types)
 
